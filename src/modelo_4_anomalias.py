@@ -20,7 +20,27 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 
 # Función para preparar los datos para detección de anomalías
-def preparar_datos_anomalias(df, variables):
+def preparar_datos_anomalias(df, variables=None):
+    # Si no se especifican variables, usar variables fijas específicas para detección de anomalías
+    if variables is None:
+        variables = []
+        # Variables numéricas importantes para detectar anomalías en transacciones
+        for col in ['Total', 'Quantity', 'Unit price', 'Tax 5%', 'cogs', 'gross income', 'Rating']:
+            if col in df.columns:
+                variables.append(col)
+        
+        # Variables categóricas que pueden mostrar patrones anómalos
+        for col in ['Gender', 'Customer type', 'Product line', 'Branch', 'City']:
+            if col in df.columns:
+                variables.append(col)
+        
+        # Si no hay variables suficientes, usar todas las numéricas disponibles
+        if len([col for col in variables if pd.api.types.is_numeric_dtype(df[col])]) < 1:
+            variables = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+    
+    if not variables:
+        raise ValueError("No se encontraron variables válidas para detección de anomalías")
+    
     X = df[variables].copy() # Usar .copy() para evitar SettingWithCopyWarning
 
     # Identificar tipos de columnas
@@ -48,9 +68,16 @@ def preparar_datos_anomalias(df, variables):
     return X_processed, preprocessor
 
 # Modelo avanzado: Isolation Forest para detección de anomalías
-def detectar_anomalias(df, variables, contamination=0.05):
+def detectar_anomalias(df, variables=None, contamination=0.05):
     X, preprocessor = preparar_datos_anomalias(df, variables)
-    model = IsolationForest(n_estimators=200, contamination=contamination, random_state=42)
+    # Configuración optimizada para entrenamiento rápido
+    model = IsolationForest(
+        n_estimators=100,        # Reducido de 200 a 100
+        contamination=contamination,
+        random_state=42,
+        max_samples='auto',      # Usar muestreo automático para velocidad
+        n_jobs=1                 # Un solo hilo para evitar overhead
+    )
     model.fit(X)
     pred = model.predict(X)
     # -1 es anomalía, 1 es normal

@@ -1,3 +1,4 @@
+# filepath: c:\Users\efren\Desktop\modelo_conceptual\modelos_conceptuales\app.py
 # Este archivo está alineado y documentado según la arquitectura conceptual ubicada en:
 # C:\Users\efren\Downloads\supermarket_nn_models_entrega\home\ubuntu\supermarket_nn_models\docs\modelos_conceptuales.md
 

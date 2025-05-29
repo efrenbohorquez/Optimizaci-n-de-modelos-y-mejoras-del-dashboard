@@ -15,28 +15,61 @@ from sklearn.impute import SimpleImputer
 
 # Función para preparar los datos para regresión
 def preparar_datos_regresion(df):
-    # Variables categóricas y numéricas según la documentación conceptual
-    cat_features = ['Branch', 'City', 'Customer type', 'Gender', 'Product line', 'Payment']
-    num_features = ['Unit price', 'Quantity', 'Tax 5%', 'Total', 'cogs', 'gross income']
+    # Verificar que Rating esté disponible
+    if 'Rating' not in df.columns:
+        raise ValueError("La columna 'Rating' es requerida para el modelo de regresión")
+    
+    # Variables fijas específicas para regresión de rating
+    # Variables numéricas más importantes para predecir rating
+    num_features = []
+    for col in ['Unit price', 'Quantity', 'Total', 'Tax 5%', 'cogs', 'gross income']:
+        if col in df.columns:
+            num_features.append(col)
+    
+    # Variables categóricas relevantes para rating
+    cat_features = []
+    for col in ['Gender', 'Customer type', 'Product line', 'Branch', 'City']:
+        if col in df.columns:
+            cat_features.append(col)
+    
+    # Asegurar que tenemos al menos algunas variables predictoras
+    if not num_features and not cat_features:
+        raise ValueError("No se encontraron las variables requeridas para regresión. Se necesitan: Unit price, Quantity, Total, Gender, Customer type, Product line")
+    
     target = 'Rating'
-
-    X = df[cat_features + num_features]
     y = df[target]
 
-    # Preprocesamiento: imputación, codificación y escalado
-    preprocessor = ColumnTransformer([
-        ('cat', OneHotEncoder(handle_unknown='ignore'), cat_features),
-        ('num', StandardScaler(), num_features)
-    ])
-
+    # Crear el preprocesador basado en las columnas disponibles
+    transformers = []
+    if cat_features:
+        transformers.append(('cat', OneHotEncoder(handle_unknown='ignore'), cat_features))
+    if num_features:
+        transformers.append(('num', StandardScaler(), num_features))
+    
+    preprocessor = ColumnTransformer(transformers)
+    
+    # Seleccionar solo las columnas que vamos a usar
+    feature_columns = cat_features + num_features
+    X = df[feature_columns]
     X_processed = preprocessor.fit_transform(X)
+    
     return X_processed, y, preprocessor
 
 # Función para crear y entrenar el modelo de regresión
 def entrenar_regresion(df):
     X, y, preprocessor = preparar_datos_regresion(df)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = MLPRegressor(hidden_layer_sizes=(128, 64, 32), activation='relu', max_iter=500, random_state=42)
+    # Configuración optimizada: menos capas y iteraciones para entrenamiento rápido
+    model = MLPRegressor(
+        hidden_layer_sizes=(64, 32), 
+        activation='relu', 
+        max_iter=200,  # Reducido de 500 a 200
+        early_stopping=True,  # Para evitar sobreentrenamiento
+        validation_fraction=0.1,
+        n_iter_no_change=10,  # Para early stopping
+        random_state=42,
+        alpha=0.001  # Regularización ligera
+    )
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     resultados = {
